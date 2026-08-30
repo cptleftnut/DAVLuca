@@ -1,0 +1,6 @@
+{
+  "name": "DAVLuca Case Platform",
+  "description": "Comprehensive Case Investigation & Evidence Synthesis Platform featuring Cross-Source Timelines, Party Signals, Audio Transcriptions, and AI Case Assistant.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
