@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { TimelineEvent, DocumentFinding, Party, TranscriptSnippet, SeriousClaim } from '../types';
 import { EvidenceFrequencyTimelineD3 } from './EvidenceFrequencyTimelineD3';
+import { SelectedEvidenceSummaryModal } from './SelectedEvidenceSummaryModal';
 
 interface EvidenceTimelineProps {
   onSelectDocument?: (doc: DocumentFinding) => void;
@@ -61,6 +62,8 @@ export function EvidenceTimeline({
   const [viewMode, setViewMode] = useState<'stream' | 'matrix'>('stream');
   const [showD3FrequencyChart, setShowD3FrequencyChart] = useState<boolean>(true);
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
+  const [isTimelineSummaryModalOpen, setIsTimelineSummaryModalOpen] = useState<boolean>(false);
+  const [timelineDocsForSummary, setTimelineDocsForSummary] = useState<DocumentFinding[]>([]);
 
   // Lookup dictionaries for cross-source resolution
   const docLookup = useMemo(() => {
@@ -318,6 +321,35 @@ export function EvidenceTimeline({
                 <span>{t('Forensisk Matrix', 'Evidence Matrix')}</span>
               </button>
             </div>
+
+            <button
+              type="button"
+              id="timeline-generate-summary-btn"
+              onClick={() => {
+                // Collect documents referenced in the current filtered events
+                const matchedDocIds = new Set<string>();
+                const matchedDocs: DocumentFinding[] = [];
+                for (const evt of filteredEvents) {
+                  if (evt.sourceDocId) matchedDocIds.add(evt.sourceDocId);
+                  if (Array.isArray(evt.sourceDocumentIds)) {
+                    evt.sourceDocumentIds.forEach((id) => matchedDocIds.add(id));
+                  }
+                }
+                for (const id of matchedDocIds) {
+                  const d = docLookup.get(id);
+                  if (d) matchedDocs.push(d);
+                }
+                // If no direct docs matched, take top documents
+                const targets = matchedDocs.length > 0 ? matchedDocs : documents.slice(0, 8);
+                setTimelineDocsForSummary(targets);
+                setIsTimelineSummaryModalOpen(true);
+              }}
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white border border-indigo-400/50 text-xs font-bold flex items-center gap-1.5 shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+              title={t('Generér forensisk Gemini resumé af tidslinjens sagsakter', 'Generate forensic Gemini summary of timeline evidence')}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
+              <span>{t('Generér Resumé', 'Generate Summary')}</span>
+            </button>
 
             <button
               type="button"
@@ -713,6 +745,25 @@ export function EvidenceTimeline({
           </div>
         </div>
       )}
+
+      {/* Forensic Timeline Gemini Summary Modal */}
+      <SelectedEvidenceSummaryModal
+        isOpen={isTimelineSummaryModalOpen}
+        onClose={() => setIsTimelineSummaryModalOpen(false)}
+        documents={timelineDocsForSummary}
+        onRemoveDoc={(docId) => {
+          setTimelineDocsForSummary((prev) => prev.filter((d) => d.id !== docId));
+        }}
+        onAskAIWithSummary={(synopsisText, docs) => {
+          if (onAskAIWithEvent && filteredEvents.length > 0) {
+            onAskAIWithEvent({
+              ...filteredEvents[0],
+              title: `Forensisk Sammenfatning (${docs.length} bevisakter)`,
+              description: synopsisText
+            });
+          }
+        }}
+      />
     </div>
   );
 }

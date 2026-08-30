@@ -43,6 +43,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useCaseData } from '../contexts/CaseDataContext';
 import { IntegratedPDFViewer } from './IntegratedPDFViewer';
 import { DocumentAISummaryPanel } from './DocumentAISummaryPanel';
+import { SelectedEvidenceSummaryModal } from './SelectedEvidenceSummaryModal';
 
 export interface EvidenceListProps {
   documents: DocumentFinding[];
@@ -79,6 +80,10 @@ export function EvidenceList({
   const [isBulkTagModalOpen, setIsBulkTagModalOpen] = useState(false);
   const [isBulkEntityModalOpen, setIsBulkEntityModalOpen] = useState(false);
   const [isBulkSignificanceModalOpen, setIsBulkSignificanceModalOpen] = useState(false);
+
+  // Gemini Evidence Summary Modal State
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState<boolean>(false);
+  const [summaryModalDocs, setSummaryModalDocs] = useState<DocumentFinding[]>([]);
 
   const [bulkTagInput, setBulkTagInput] = useState('');
   const [bulkPartyInput, setBulkPartyInput] = useState('');
@@ -591,6 +596,37 @@ export function EvidenceList({
                 <Sparkles className="w-4 h-4 text-indigo-400" />
                 <span className="hidden sm:inline">{t('AI Sidepanel', 'AI Sidepanel')}</span>
               </button>
+
+              <button
+                type="button"
+                id="generate-summary-top-btn"
+                onClick={() => {
+                  const targets = selectedDocIds.length > 0
+                    ? documents.filter((d) => selectedDocIds.includes(d.id))
+                    : filteredAndSortedDocs.slice(0, 10);
+                  if (targets.length > 0) {
+                    setSummaryModalDocs(targets);
+                    setIsSummaryModalOpen(true);
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                  selectedDocIds.length > 0
+                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white border-indigo-400/60 shadow-md shadow-indigo-600/30'
+                    : 'bg-indigo-950/70 hover:bg-indigo-900/80 text-indigo-300 border-indigo-500/40'
+                }`}
+                title={
+                  selectedDocIds.length > 0
+                    ? t(`Generér samlet synopse af ${selectedDocIds.length} valgte beviser`, `Generate synopsis of ${selectedDocIds.length} selected items`)
+                    : t('Generér resumé af de viste bevisakter', 'Generate summary of shown evidence')
+                }
+              >
+                <Sparkles className="w-3.5 h-3.5 text-indigo-300" />
+                <span>
+                  {selectedDocIds.length > 0
+                    ? `${t('Generér Resumé', 'Generate Summary')} (${selectedDocIds.length})`
+                    : t('Generér Resumé', 'Generate Summary')}
+                </span>
+              </button>
             </div>
 
             {/* Significance filter */}
@@ -676,6 +712,22 @@ export function EvidenceList({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              id="bulk-generate-summary-btn"
+              onClick={() => {
+                const targets = documents.filter((d) => selectedDocIds.includes(d.id));
+                if (targets.length > 0) {
+                  setSummaryModalDocs(targets);
+                  setIsSummaryModalOpen(true);
+                }
+              }}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold text-xs shadow-lg shadow-indigo-600/40 flex items-center gap-2 transition-all cursor-pointer border border-indigo-400/50"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
+              <span>{t('⚡ Generér Resumé (Gemini)', '⚡ Generate Summary (Gemini)')}</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setIsBulkTagModalOpen(true)}
@@ -1866,6 +1918,29 @@ export function EvidenceList({
           </motion.div>
         </div>
       )}
+
+      {/* =================================================== */}
+      {/* 9. GEMINI FORENSIC EVIDENCE SYNOPSIS MODAL         */}
+      {/* =================================================== */}
+      <SelectedEvidenceSummaryModal
+        isOpen={isSummaryModalOpen}
+        onClose={() => setIsSummaryModalOpen(false)}
+        documents={summaryModalDocs}
+        onRemoveDoc={(docId) => {
+          setSummaryModalDocs((prev) => prev.filter((d) => d.id !== docId));
+          setSelectedDocIds((prev) => prev.filter((id) => id !== docId));
+        }}
+        onAskAIWithSummary={(synopsisText, docs) => {
+          if (onAskAIWithDoc && docs.length > 0) {
+            onAskAIWithDoc({
+              ...docs[0],
+              title: `Forensisk Sammenfatning (${docs.length} bevisakter)`,
+              summary: synopsisText,
+              excerpt: synopsisText.slice(0, 300)
+            });
+          }
+        }}
+      />
     </div>
   );
 }
